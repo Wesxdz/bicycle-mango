@@ -176,5 +176,3 @@ enum LOOP_TIMES : uint8_t
     RENDER,
     DISPLAY, 
 };
-
-#include "groups.h"
