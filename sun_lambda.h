@@ -10,7 +10,7 @@
 #include <vector>
 
 #ifdef HOT_RELOAD
-    #include "HotReload/module_loader.h"
+    #include "hot-reload/module_loader.h"
 #endif
 
 using Group = uint16_t;
@@ -166,7 +166,7 @@ enum LOOP_TIMES : uint8_t
 {
     FORAGE,
     NETWORK_RECEIVE,
-    INPUT,
+    INPUT_,
     AI,
     UPDATE,
     EVENTS,
