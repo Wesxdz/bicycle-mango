@@ -26,14 +26,14 @@ public:
     void Unload()
     {
 #ifdef _MSC_VER
-        try()
+        try
         {
             if (!FreeLibrary(static_cast<HMODULE>(handle)))
             {
                 throw "Could not unload module";
             }
         }
-        catch()
+        catch(...)
         {
 
         }
