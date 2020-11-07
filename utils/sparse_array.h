@@ -17,7 +17,6 @@ public:
             typedef int difference_type;
             iterator(std::optional<T>* ptr) : ptr(ptr) { }
             self_type operator++(){ self_type i = *this; advance(); return i; }
-            self_type operator++(int junk) { advance(); return *this; }
             reference operator*() { return ptr->object; }
             pointer operator->() { return &ptr->object; }
             bool operator==(const self_type& rhs) { return ptr == rhs.ptr; }
@@ -44,7 +43,6 @@ public:
             typedef int difference_type;
             const_iterator(std::optional<T>* ptr) : ptr(ptr) { }
             self_type operator++(){ self_type i = *this; advance(); return i; }
-            self_type operator++(int junk) { advance(); return *this; }
             reference_const operator*() { return ptr->object; }
             pointer_const operator->() { return &ptr->object; }
             bool operator==(const self_type& rhs) { return ptr == rhs.ptr; }

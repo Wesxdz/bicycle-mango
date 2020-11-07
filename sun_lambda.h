@@ -179,5 +179,5 @@ enum LOOP_TIMES : uint8_t
     ANIMATION,
     FX,
     RENDER,
-    DISPLAY, 
+    DISPLAY,
 };

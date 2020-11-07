@@ -71,6 +71,7 @@ public:
     {
         sf::Clock clock;
         auto startTime = clock.getElapsedTime();
+        CreatePropsDelayed();
         for (const SunSchedule& schedule : schedules)
         {
             SunLambdaRegistry::GetInstance().Get(schedule.id)();
@@ -185,7 +186,7 @@ public:
     // SHOULD WE ONLY STORE THIS INFORMATION FOR PARTIAL STATICS OR EVERYTHING???
 //     static inline std::unordered_map<PropTypeId, std::unordered_map<Group, std::unordered_map<Instance, std::set<PropIdRaw>>>> ptgid;
     
-    struct GlobalPropId {PropTypeId typeId;PropIdRaw id;};
+    struct GlobalPropId {PropTypeId typeId; PropIdRaw id;};
     friend inline bool operator< (const GlobalPropId& lhs, const GlobalPropId& rhs){ return lhs.typeId < rhs.typeId && lhs.id < rhs.id; }
 
 
@@ -268,20 +269,64 @@ public:
             AddPropStage(propId, stage);
         }
     }
-    
-    // TODO: Should adding props be delayed to beginning of next frame? Prop removal needs to work during frames when props are added
+
+    struct DelayedPropCreator
+    {
+        GlobalPropId gpid;
+        GroupSet stages;
+    };
+
+    static void AddPropStages(DelayedPropCreator& creator)
+    {
+        for(const Stage& stage : creator.stages)
+        {
+            instanceBuffer[stage.group].nextId = stage.instance + 1;
+            ptpsq[creator.gpid.typeId][creator.gpid.id].insert(stage);
+        }
+    }
+
+    template<typename PropType>
+    static PropType* InitProp(const GroupSet& stages)
+    {
+        auto [id, prop] = GetProps<PropType>().next();
+        PropId<PropType> propId{id};
+        AddPropStages(propId, stages);
+        ConsiderProp({GetPropTypeId<PropType>(), id});
+        return &prop;
+    }
+
+    // Added props are allocated immediately for factory construction but only form novel tuples at the beginning of a frame (after removal queries are executed) 
     template<typename PropType>
     static PropType* AddProp(const GroupSet& stages)
     {
         auto [id, prop] = GetProps<PropType>().next();
-
         PropId<PropType> propId{id};
         AddPropStages(propId, stages);
-        
-        auto propTypeId = GetPropTypeId<PropType>();
+        propsToAdd.push_back({{GetPropTypeId<PropType>(), id}, stages});
+        return &prop;
+    }
+
+    static void CreatePropsDelayed()
+    {
+        for (DelayedPropCreator& creator : propsToAdd)
+        {
+            AddPropStages(creator);
+            ConsiderProp(creator.gpid);
+        }
+        propsToAdd.clear();
+    }
+    
+    static inline std::vector<DelayedPropCreator> propsToAdd;
+
+    static void ConsiderProp(GlobalPropId consider)
+    {
+        PropIdRaw id = consider.id;
+        PropTypeId propTypeId = consider.typeId;
+
+        GroupSet& stages = ptpsq[propTypeId][id];
         // std::cout << "--- Adding prop {" << propTypeNames[propTypeId] << ", " << id << "}" << std::endl;
         auto typesetsWithAddedPropType = BicycleMango::mappedPropTupleTypesets[propTypeId];
-        
+  
         // ---
         for (auto typeset_it = typesetsWithAddedPropType.begin(); typeset_it != typesetsWithAddedPropType.end(); ++typeset_it)
         {
@@ -474,8 +519,6 @@ public:
                 }
             } // --- end sunlambda_it
         } // --- end typeset_it
-
-        return &prop;
     }
 
     // Props should only be removed by stage rather than considering type
@@ -631,6 +674,12 @@ public:
     {
         BicycleMango::novelTupleCreators[sunLambdaId].reuseOnStages[BicycleMango::GetPropTypeId<PropType>()] = 
                 [](std::set<Stage>&, PropTypeId, std::set<Stage>&){ return true; };
+    }
+
+    template <typename PropType>
+    static void Partial(SunLambda::Id sunLambdaId, std::function<bool(std::set<Stage>&, PropTypeId, std::set<Stage>&)> reuse)
+    {
+        BicycleMango::novelTupleCreators[sunLambdaId].reuseOnStages[BicycleMango::GetPropTypeId<PropType>()] = reuse;
     }
 
     template <typename PropType>
