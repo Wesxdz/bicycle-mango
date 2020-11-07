@@ -115,9 +115,10 @@ public:
     // A user provided function set per SunLambda that determines if props can be considered part of a novel tuple
     using CompatibleConstraint = std::function<bool(PropTypeId, const Stage&)>;
 
-    // A user provided Can this prop be reused in novel tuples
-    using PartialStaticIndicators = std::unordered_map<PropTypeId, std::function<bool(std::set<Stage>&)>>;
-    
+    // A user provided that represents if this prop should be reused in novel tuples
+    // Must return true for all other props in the typeset
+    using PartialStaticIndicators = std::unordered_map<PropTypeId, std::function<bool(GroupSet&, PropTypeId, GroupSet&)>>;
+
     struct NovelTupleCreator
     {
         CompatibleConstraint compatible;
@@ -158,7 +159,7 @@ public:
 
     // This data structure is an augment of potential neighbors when searching for props to form novel tuples
     static inline std::unordered_map<SunLambda::Id, std::unordered_map<PropTypeId, std::vector<PropIdRaw>>> partialStatics;
-    
+
     static inline CompatibleConstraint All = [](PropTypeId, const Stage&){return true;};
     static void Plan(SunLambda::Id id, const ScheduleSpecificity& specificity, CompatibleConstraint compatible = All)
     {
@@ -305,6 +306,13 @@ public:
                     for (const Stage& stage : ptpsq[ptid][rid])
                     {
                         // std::cout << "Checking compatability on stage: " << stage << " for {" << propTypeNames[ptid] << ", " << rid << "}" << std::endl;
+                        if (!novelTupleCreators[(*sunlambda_it)].compatible)
+                        {
+                            // The prop was added before this SunLambda was planned!
+                            // TODO: Add novel tuples on SunLambda registry in case tuples were added and staged prior to planning
+                            // Figure out how a CompatibleConstraint should be set prior to planning
+                            return true;
+                        }
                         if (novelTupleCreators[(*sunlambda_it)].compatible(ptid, stage))
                         {
                             // std::cout << "COMPATIBLE!" << std::endl;
@@ -324,37 +332,38 @@ public:
                     // std::cout << "Prop does not fulfill compatability constraint!" << std::endl;
                 }
                 
+                NovelTupleCreator& creator = novelTupleCreators[(*sunlambda_it)];
                 bool isAddedPropPartialStatic = false;
                 if (!novelTupleRuledOut)
                 {
                     if (novelTupleCreators.count((*sunlambda_it)) > 0)
                     {
-                        NovelTupleCreator& creator = novelTupleCreators[(*sunlambda_it)];
-                        if (creator.reuseOnStages.count(propTypeId) > 0)
+                        if (creator.reuseOnStages.count(propTypeId) > 0) // All props with reuse function are considered partial statics
                         {
-                            // std::cout << "Has stage constraints!" << std::endl;
-                            if(creator.reuseOnStages[propTypeId](ptpsq[propTypeId][id]))
-                            {
-                                isAddedPropPartialStatic = true;
-                                partialStatics[(*sunlambda_it)][propTypeId].push_back(id);
-                            }
+                            isAddedPropPartialStatic = true;
+                            partialStatics[(*sunlambda_it)][propTypeId].push_back(id);
                         }
                     }
                 }
                 
                 std::unordered_map<PropTypeId, PropIdRaw> partialStaticNeighbors;
-                auto FindPartialStatic = [sunlambda_it, &partialStaticNeighbors, &IsPropCompatibleWithSunLambda](PropTypeId ptid)
+                auto FindPartialStatic = [sunlambda_it, &partialStaticNeighbors, &IsPropCompatibleWithSunLambda, &creator, &stages, &propTypeId](PropTypeId ptid)
                 {
                     for (auto& partialStaticsOfType : partialStatics[(*sunlambda_it)])
                     {
                         for (const PropIdRaw& partialStatic : partialStaticsOfType.second)
                         {
+                            
                             if (IsPropCompatibleWithSunLambda(ptid, partialStatic))
-                            {
+                            {;
                                 // TODO: Maybe use a different data structure for efficiency, it depends how many partial statics there could be
-                                // std::cout << "Found partial static: " << propTypeNames[ptid] << std::endl;
-                                partialStaticNeighbors[ptid] = partialStatic;
-                                return true;
+                                // creator.reuseOnStages[propTypeId](stages, partialStaticsOfType.first, ptpsq[partialStaticsOfType.first][partialStatic])
+                                if (true)
+                                {
+                                    // std::cout << "Found partial static: " << propTypeNames[ptid] << std::endl;
+                                    partialStaticNeighbors[ptid] = partialStatic;
+                                    return true;
+                                }
                             } else
                             {
                                 // std::cout << "Partial static not compatible!" << std::endl;
@@ -425,6 +434,7 @@ public:
                         } else
                         {
                             novelTuple[i] = {ptid, compatibleNeighbors[ptid].back()};
+                            // TODO: This is incorrect, potential neighbors should remove the greatest compatible index found in potentialNeighbors
                             potentialNeighbors[ptid].pop_back();
                         }
                         i++;
@@ -620,7 +630,7 @@ public:
     static void Singleton(SunLambda::Id sunLambdaId)
     {
         BicycleMango::novelTupleCreators[sunLambdaId].reuseOnStages[BicycleMango::GetPropTypeId<PropType>()] = 
-                [](std::set<Stage>&){return true;};
+                [](std::set<Stage>&, PropTypeId, std::set<Stage>&){ return true; };
     }
 
     template <typename PropType>

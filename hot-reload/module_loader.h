@@ -1,5 +1,7 @@
 #pragma once
 
+#include <iostream>
+
 #ifdef _MSC_VER
     #define WIN32_LEAN_AND_MEAN
     #include <Windows.h>
@@ -19,7 +21,10 @@ public:
 #else
         module.handle = dlopen(path.data(), RTLD_LAZY);
 #endif
-
+        std::cout << "Loaded " << module.handle << std::endl;
+        if (!module.handle) {
+            std::cerr << "Cannot open library: " << dlerror() << '\n';
+        }
         return module;
     }
 
@@ -38,6 +43,7 @@ public:
 
         }
 #else
+        std::cout << "Unloading " << handle << std::endl;
         if (dlclose(handle))
         {
             throw "Could not unload module";
@@ -73,6 +79,6 @@ public:
         return handle;
     }
 
-private:
+// private:
     void* handle = nullptr;
 };

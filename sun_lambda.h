@@ -32,7 +32,7 @@ struct Stage
     }
 };
 
-using GroupSet = std::vector<Stage>;
+using GroupSet = std::set<Stage>;
 
 /*
  * Pointer to a function in discrete time that acts on prop tuples
@@ -71,10 +71,15 @@ struct SunLambda // λ
 class SunLambdaRegistry
 {
 public:
-
+    std::vector<std::function<void(const SunLambda&)>> OnRegisterSunLambda;
+    
     void Register(const SunLambda& lambda)
     {
         sunLambdas[lambda.id] = lambda;
+        for (auto& Callback : OnRegisterSunLambda)
+        {
+            Callback(lambda);
+        }
     }
 
     template<typename T>
@@ -106,7 +111,7 @@ public:
     void Reload()
     {
         Unload();
-
+        std::cout << HOT_RELOAD_LIB << std::endl;
         module = Module::Load(HOT_RELOAD_LIB);
 
         for(auto& [id, lambda] : sunLambdas)
@@ -166,7 +171,7 @@ enum LOOP_TIMES : uint8_t
 {
     FORAGE,
     NETWORK_RECEIVE,
-    INPUT_,
+    INPUT,
     AI,
     UPDATE,
     EVENTS,
