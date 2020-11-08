@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <functional>
 #include <iostream>
+#include <set>
 #include <typeinfo>
 #include <typeindex>
 #include <unordered_map>
@@ -64,6 +65,11 @@ struct SunLambda // λ
     void Emerge(std::vector<size_t> sunData) const
     {
 //         std::cout << "Emerging with " << sunData.size() << " sun data" << std::endl;
+        (*jolt)(*this, sunData);
+    }
+
+    void Breakup(std::vector<size_t> sunData) const
+    {
         (*jolt)(*this, sunData);
     }
 };

@@ -612,6 +612,15 @@ public:
                     
                 }
                 // TODO: Call breakups
+                if (breakups.count(broken.first))
+                {
+                    std::vector<PropIdRaw> sunData((*tuple).size()); // The SunLambda already knows the types in order, therefore we only need pass it the PropIdRaw values and it can imply the types
+                    for (GlobalPropId& gpid : (*tuple))
+                        sunData.push_back(gpid.id);
+                    SunLambda& sun = SunLambdaRegistry::GetInstance().Get(broken.first);
+                    sun.Breakup(sunData);
+                    break;
+                }
                 novelTuples[broken.first].erase(tuple);
             }
         }
