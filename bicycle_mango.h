@@ -1,7 +1,6 @@
 #pragma once
 
 #include <algorithm>
-#include <array>
 #include <chrono>
 #include <cstdint>
 #include <functional>
@@ -301,7 +300,6 @@ public:
     {
         auto [id, prop] = GetProps<PropType>().next();
         PropId<PropType> propId{id};
-        AddPropStages(propId, stages);
         propsToAdd.push_back({{GetPropTypeId<PropType>(), id}, stages});
         return &prop;
     }
