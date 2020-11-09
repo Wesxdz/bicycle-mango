@@ -48,7 +48,7 @@ using ScheduleSpecificity = Specificity<SpecificityDepth>;
  * Creating a game should be fun.
  *
  */
-class BicycleMango
+class mango
 {
 public:
     // The time between the beginning and end of the last loop
@@ -127,18 +127,16 @@ public:
 
     // Emerges are called when a novel tuple is formed
     static inline std::set<SunLambda::Id> emerges;
-    static void Emerge(SunLambda::Id id, CompatibleConstraint compatible = All)
+    static void Emerge(SunLambda::Id id)
     {
         emerges.insert(id);
-        novelTupleCreators[id].compatible = compatible;
     }
 
     // Breakups are called when a one or more of the props in a novel tuple are removed
     static inline std::set<SunLambda::Id> breakups;
-    static void Breakup(SunLambda::Id id, CompatibleConstraint compatible = All)
+    static void Breakup(SunLambda::Id id)
     {
         breakups.insert(id);
-        novelTupleCreators[id].compatible = compatible;
     }
 
     /*
@@ -161,7 +159,19 @@ public:
     static inline std::unordered_map<SunLambda::Id, std::unordered_map<PropTypeId, std::vector<PropIdRaw>>> partialStatics;
 
     static inline CompatibleConstraint All = [](PropTypeId, const Stage&){return true;};
-    static void Plan(SunLambda::Id id, const ScheduleSpecificity& specificity, CompatibleConstraint compatible = All)
+    
+    struct PlanData
+    {
+        SunLambda::Id id;
+        ScheduleSpecificity specificity;
+    };
+
+    static void Plan(std::vector<PlanData> data)
+    {
+        for (PlanData& p : data) Plan(p.id, p.specificity);
+    }
+
+    static void Plan(SunLambda::Id id, const ScheduleSpecificity& specificity)
     {
         SunSchedule schedule{id, specificity};
 
@@ -171,7 +181,6 @@ public:
         });
 
         schedules.insert(it, schedule);
-        novelTupleCreators[id].compatible = compatible;
     }
 
     template<typename T>
@@ -207,13 +216,13 @@ public:
     template<typename... PTypes>
     static void ConsiderTypeset(SunLambda::Id id)
     {
-        Typeset typeset = {BicycleMango::GetPropTypeId<std::decay_t<PTypes>>()...};
+        Typeset typeset = {mango::GetPropTypeId<std::decay_t<PTypes>>()...};
         sunLambdaTypesets[id] = typeset;
         typesetSunLambdas[typeset].push_back(id);
         for (PropTypeId ptid : typeset)
         {
-            BicycleMango::globalPropTupleTypesets.insert(typeset);
-            BicycleMango::mappedPropTupleTypesets[ptid].insert(typeset);
+            mango::globalPropTupleTypesets.insert(typeset);
+            mango::mappedPropTupleTypesets[ptid].insert(typeset);
         }
     }
     
@@ -323,7 +332,7 @@ public:
 
         GroupSet& stages = ptpsq[propTypeId][id];
         // std::cout << "--- Adding prop {" << propTypeNames[propTypeId] << ", " << id << "}" << std::endl;
-        auto typesetsWithAddedPropType = BicycleMango::mappedPropTupleTypesets[propTypeId];
+        auto typesetsWithAddedPropType = mango::mappedPropTupleTypesets[propTypeId];
   
         // ---
         for (auto typeset_it = typesetsWithAddedPropType.begin(); typeset_it != typesetsWithAddedPropType.end(); ++typeset_it)
@@ -336,7 +345,7 @@ public:
                 // std::cout << "Checking for novel tuple on SunLambda: " << SunLambdaRegistry::GetInstance().Get((*sunlambda_it)).name << std::endl;
                 // Check if a novel tuple is formed with this prop from the staged prop neighbors of each SunLambda that propTypeId is in!
                 // Partial statics are not considered as potentialNeighbors because then we'd have to copy the stagingPropTuples vector rather than using a ref
-                std::unordered_map<PropTypeId, std::vector<PropIdRaw>>& potentialNeighbors = BicycleMango::stagingPropTuples[(*sunlambda_it)];
+                std::unordered_map<PropTypeId, std::vector<PropIdRaw>>& potentialNeighbors = mango::stagingPropTuples[(*sunlambda_it)];
                 // However, both potential neighbors AND partial statics will be added to compatibleNeighbors later in this function
                 std::unordered_map<PropTypeId, std::vector<PropIdRaw>> compatibleNeighbors;
                 bool addedPropFulfillsCompatabilityConstraint = false;
@@ -512,7 +521,7 @@ public:
                     if (addedPropFulfillsCompatabilityConstraint && !isAddedPropPartialStatic)
                     {
                         // std::cout << "Staging " << propTypeNames[propTypeId] << ": " << id << std::endl;
-                        BicycleMango::stagingPropTuples[(*sunlambda_it)][propTypeId].push_back(id);
+                        mango::stagingPropTuples[(*sunlambda_it)][propTypeId].push_back(id);
                     }
                 }
             } // --- end sunlambda_it
@@ -607,7 +616,7 @@ public:
                     {
                         // If the prop is not removed, but the tuple is broken, we should restage it
                         // std::cout << "Restage prop of type " << propTypeNames[gpid.typeId] << " on SunLambda " << SunLambdaRegistry::GetInstance().Get(broken.first).name << std::endl;
-                        BicycleMango::stagingPropTuples[broken.first][gpid.typeId].push_back(gpid.id);
+                        mango::stagingPropTuples[broken.first][gpid.typeId].push_back(gpid.id);
                     }
                     
                 }
@@ -675,18 +684,31 @@ public:
         ResetProps();
         ResetSunLambdas();
     }
+
+    template <typename PropType>
+    static void Singleton()
+    {
+        for (const Typeset& typeset : mappedPropTupleTypesets[GetPropTypeId<PropType>()])
+        {
+            for (SunLambda::Id& sunLambdaId : typesetSunLambdas[typeset])
+            {
+                mango::novelTupleCreators[sunLambdaId].reuseOnStages[mango::GetPropTypeId<PropType>()] = 
+                    [](std::set<Stage>&, PropTypeId, std::set<Stage>&){ return true; };
+            }
+        }
+    }
     
     template <typename PropType>
     static void Singleton(SunLambda::Id sunLambdaId)
     {
-        BicycleMango::novelTupleCreators[sunLambdaId].reuseOnStages[BicycleMango::GetPropTypeId<PropType>()] = 
+        mango::novelTupleCreators[sunLambdaId].reuseOnStages[mango::GetPropTypeId<PropType>()] = 
                 [](std::set<Stage>&, PropTypeId, std::set<Stage>&){ return true; };
     }
 
     template <typename PropType>
     static void Partial(SunLambda::Id sunLambdaId, std::function<bool(std::set<Stage>&, PropTypeId, std::set<Stage>&)> reuse)
     {
-        BicycleMango::novelTupleCreators[sunLambdaId].reuseOnStages[BicycleMango::GetPropTypeId<PropType>()] = reuse;
+        mango::novelTupleCreators[sunLambdaId].reuseOnStages[mango::GetPropTypeId<PropType>()] = reuse;
     }
 
     template <typename PropType>

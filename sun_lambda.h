@@ -151,12 +151,12 @@ SUN_EXPORT void LAMBDA_NAME ## _Act(__VA_ARGS__);      \
 \
 inline void LAMBDA_NAME ## _Caller(const SunLambda& lambda) \
 {\
-   BicycleMango::IterateProps(reinterpret_cast<void (*)(__VA_ARGS__)>(lambda.functor), lambda.id);\
+   mango::IterateProps(reinterpret_cast<void (*)(__VA_ARGS__)>(lambda.functor), lambda.id);\
 }      \
 \
 inline void LAMBDA_NAME ## _TypesetCaller(const SunLambda& lambda, std::vector<size_t> sunData)\
 {\
-    BicycleMango::CallJolt<__VA_ARGS__>(reinterpret_cast<void (*)(__VA_ARGS__)>(lambda.functor), lambda.id, sunData);\
+    mango::CallJolt<__VA_ARGS__>(reinterpret_cast<void (*)(__VA_ARGS__)>(lambda.functor), lambda.id, sunData);\
 }\
 struct LAMBDA_NAME : SunLambda               \
 {                                             \
@@ -167,7 +167,7 @@ struct LAMBDA_NAME : SunLambda               \
         functor = reinterpret_cast<void*>(&LAMBDA_NAME ## _Act);          \
         name = #LAMBDA_NAME;                      \
         SunLambda::id = LAMBDA_NAME::Id();         \
-        BicycleMango::ConsiderTypeset<__VA_ARGS__>(Id());\
+        mango::ConsiderTypeset<__VA_ARGS__>(Id());\
     };                                              \
     static Id Id(){ return std::type_index(typeid(LAMBDA_NAME)).hash_code(); } \
     static const inline int ForceInit = (SunLambdaRegistry::GetInstance().Register<LAMBDA_NAME>(), 0); \
